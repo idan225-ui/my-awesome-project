@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>פורטפוליו פרויקטים</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-color: #1f2937;
+            --text-secondary: #6b7280;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        p.subtitle {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            padding: 1rem;
+        }
+
+        .project-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-color: var(--primary-color);
+        }
+
+        .card-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+        }
+
+        .card-description {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            flex-grow: 1;
+        }
+
+        .card-arrow {
+            margin-top: 1.5rem;
+            color: var(--primary-color);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-arrow::after {
+            content: '←';
+            transition: transform 0.2s;
+        }
+
+        .project-card:hover .card-arrow::after {
+            transform: translateX(-5px);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>פורטפוליו פרויקטים</h1>
+            <p class="subtitle">אינדקס לפרויקטים בקורס AI</p>
+        </header>
+
+        <div class="projects-grid">
+            <a href="israeli_stocks_tracker.html" class="project-card">
+                <div class="card-icon">🌍</div>
+                <div class="card-title">מעקב מניות גלובלי</div>
+                <div class="card-description">
+                    Global Stocks Tracker - מעקב אחר מניות משווקים גלובליים.
+                </div>
+                <div class="card-arrow">צפה בפרויקט</div>
+            </a>
+
+            <a href="GEMINI_israeli_stocks_tracker.html" class="project-card">
+                <div class="card-icon">📈</div>
+                <div class="card-title">טרמינל מניות תל-אביב</div>
+                <div class="card-description">
+                    TA-Stocks Tracker - לוח מעקב מתקדם אחר מניות בבורסת תל אביב.
+                </div>
+                <div class="card-arrow">צפה בפרויקט</div>
+            </a>
+
+            <a href="machine_learning_visualization.html" class="project-card">
+                <div class="card-icon">🤖</div>
+                <div class="card-title">ויזואליזציה של למידת מכונה</div>
+                <div class="card-description">
+                    הדגמה ויזואלית של מושגי יסוד בלמידת מכונה, כולל רגרסיה וסיווג נתונים.
+                </div>
+                <div class="card-arrow">צפה בפרויקט</div>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>טרמינל מניות תל-אביב | TA-Stocks Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon"></script>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --bg-hover: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #3b82f6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --border: #334155;
+            --glass: rgba(30, 41, 59, 0.8);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            height: 100vh;
+            display: grid;
+            grid-template-rows: 60px 1fr;
+            overflow: hidden;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--bg-hover); border-radius: 3px; }
+
+        /* Header */
+        header {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .logo { font-size: 1.5rem; font-weight: 800; color: var(--accent); display: flex; align-items: center; gap: 10px; }
+        .logo span { color: var(--text-primary); }
+        
+        .search-bar {
+            flex: 1;
+            max-width: 400px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            padding: 10px 15px;
+            border-radius: 8px;
+            color: var(--text-primary);
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .status-badge {
+            font-size: 0.8rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: var(--bg-dark);
+            color: var(--text-secondary);
+        }
+        
+        .status-badge.live { color: var(--success); border: 1px solid var(--success); }
+        .status-badge.sim { color: var(--accent); border: 1px solid var(--accent); }
+
+        /* Main Layout */
+        main {
+            display: grid;
+            grid-template-columns: 300px 1fr 350px;
+            height: calc(100vh - 60px);
+        }
+
+        /* Sidebar - Watchlist */
+        .sidebar {
+            background: var(--bg-card);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-card);
+        }
+
+        .stock-list {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .stock-item {
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+        }
+
+        .stock-item:hover, .stock-item.active {
+            background: var(--bg-hover);
+        }
+
+        .stock-item.active {
+            border-right: 3px solid var(--accent);
+        }
+
+        .stock-symbol { font-weight: 700; font-size: 1rem; }
+        .stock-name { font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .stock-price { font-family: 'Courier New', monospace; font-weight: 600; text-align: left; }
+        .stock-change { font-size: 0.85rem; text-align: left; }
+
+        .up { color: var(--success); }
+        .down { color: var(--danger); }
+
+        /* Central Chart Area */
+        .chart-area {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .stock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .main-price-display {
+            text-align: left;
+        }
+
+        .big-price {
+            font-size: 2.5rem;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+        }
+
+        .price-details {
+            display: flex;
+            gap: 15px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .chart-container {
+            flex: 1;
+            min-height: 400px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 15px;
+            position: relative;
+        }
+
+        /* Right Panel - Details & Calculator */
+        .right-panel {
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .detail-item label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .detail-item .value {
+            font-weight: 600;
+        }
+
+        .calc-box {
+            background: var(--bg-dark);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .calc-input {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 8px;
+            border-radius: 4px;
+            color: var(--text-primary);
+            margin-top: 5px;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover { opacity: 0.9; }
+
+        .time-filters {
+            display: flex;
+            gap: 5px;
+            background: var(--bg-dark);
+            padding: 5px;
+            border-radius: 8px;
+            width: fit-content;
+        }
+
+        .time-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .time-btn.active {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            main { grid-template-columns: 250px 1fr; }
+            .right-panel { display: none; } /* Hide details on tablet */
+        }
+
+        @media (max-width: 768px) {
+            main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+            .sidebar { height: 200px; border-left: none; border-bottom: 1px solid var(--border); }
+            header { padding: 0 10px; }
+            .logo span { display: none; }
+        }
+
+        .loader {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--accent);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            📈 <span>TA-Stocks</span>
+        </div>
+        <div class="search-bar">
+            <input type="text" class="search-input" placeholder="חפש מניה (לדוגמה: TEVA)..." id="searchInput">
+        </div>
+        <div id="dataStatus" class="status-badge sim">סימולציה</div>
+    </header>
+
+    <main>
+        <!-- Sidebar Watchlist -->
+        <aside class="sidebar">
+            <div class="panel-header">
+                <span>רשימת מעקב</span>
+                <span style="font-size: 0.8rem; color: var(--text-secondary)">TA-35</span>
+            </div>
+            <div class="stock-list" id="watchlist">
+                <!-- Generated by JS -->
+            </div>
+        </aside>
+
+        <!-- Main Chart Area -->
+        <section class="chart-area">
+            <div class="stock-header">
+                <div>
+                    <h1 id="mainSymbol">TEVA</h1>
+                    <div style="color: var(--text-secondary)" id="mainName">Teva Pharmaceutical Industries Ltd.</div>
+                </div>
+                <div class="main-price-display">
+                    <div class="big-price" id="mainPrice">0.00</div>
+                    <div id="mainChange" class="stock-change">0.00 (0.00%)</div>
+                </div>
+            </div>
+
+            <div class="time-filters">
+                <button class="time-btn" onclick="setRange('1mo')">1M</button>
+                <button class="time-btn" onclick="setRange('3mo')">3M</button>
+                <button class="time-btn" onclick="setRange('6mo')">6M</button>
+                <button class="time-btn active" onclick="setRange('1y')">1Y</button>
+                <button class="time-btn" onclick="setRange('5y')">5Y</button>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="mainChart"></canvas>
+                <div class="loader" id="chartLoader">טוען...</div>
+            </div>
+        </section>
+
+        <!-- Right Details Panel -->
+        <aside class="right-panel">
+            <div class="panel-header">נתונים</div>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>פתיחה</label>
+                    <div class="value" id="valOpen">-</div>
+                </div>
+                <div class="detail-item">
+                    <label>גבוה</label>
+                    <div class="value" id="valHigh">-</div>
+                </div>
+                <div class="detail-item">
+                    <label>נמוך</label>
+                    <div class="value" id="valLow">-</div>
+                </div>
+                <div class="detail-item">
+                    <label>מחזור</label>
+                    <div class="value" id="valVol">-</div>
+                </div>
+                <div class="detail-item">
+                    <label>שווי שוק</label>
+                    <div class="value" id="valCap">-</div>
+                </div>
+            </div>
+
+            <div class="panel-header" style="margin-top: 20px;">מחשבון תשואה</div>
+            <div class="calc-box">
+                <label style="font-size: 0.8rem; color: var(--text-secondary)">סכום השקעה (₪)</label>
+                <input type="number" id="investAmount" class="calc-input" value="10000">
+                
+                <label style="font-size: 0.8rem; color: var(--text-secondary)">מחיר קנייה (משוער)</label>
+                <input type="number" id="buyPrice" class="calc-input">
+                
+                <button class="btn" onclick="calculateReturn()">חשב רווח/הפסד</button>
+                
+                <div id="calcResult" style="margin-top: 15px; text-align: center; display: none;">
+                    <div style="font-size: 0.9rem;">שווי נוכחי</div>
+                    <div style="font-size: 1.2rem; font-weight: bold;" id="calcTotal">-</div>
+                    <div id="calcDiff" style="font-size: 0.9rem;">-</div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        // --- CONFIG & STATE ---
+        const CONFIG = {
+            useProxy: true,
+            proxyUrl: 'https://corsproxy.io/?',
+            yahooUrl: 'https://query1.finance.yahoo.com/v8/finance/chart/'
+        };
+
+        const STATE = {
+            currentSymbol: 'TEVA.TA',
+            currentRange: '1y',
+            stocks: [
+                { s: 'TEVA.TA', n: 'טבע תעשיות', p: 6450 },
+                { s: 'NICE.TA', n: 'נייס', p: 68000 },
+                { s: 'LUMI.TA', n: 'בנק לאומי', p: 2950 },
+                { s: 'DSCT.TA', n: 'דיסקונט השקעות', p: 380 },
+                { s: 'BEZQ.TA', n: 'בזק', p: 480 },
+                { s: 'ICL.TA', n: 'איי.סי.אל', p: 1850 },
+                { s: 'FIBI.TA', n: 'הבנק הבינלאומי', p: 14500 },
+                { s: 'MNDY', n: 'מאנדיי (US)', p: 85000 }, /* Foreign traded Israeli */
+                { s: 'WIX', n: 'וויקס (US)', p: 45000 },
+                { s: 'ELBIT.TA', n: 'אלביט מערכות', p: 78000 },
+                { s: 'ENLT.TA', n: 'אנלייט אנרגיה', p: 6200 },
+                { s: 'NVDA', n: 'NVIDIA (US)', p: 350000 }
+            ],
+            chart: null,
+            isSimulation: true,
+            history: [] // Stores graph points
+        };
+
+        // --- MOCK DATA ENGINE ---
+        // Generates realistic looking stock movements when API fails
+        class MockEngine {
+            constructor() {
+                this.intervals = {};
+            }
+
+            generateHistory(basePrice, days = 365) {
+                const data = [];
+                let price = basePrice;
+                const now = new Date();
+                
+                for(let i = days; i >= 0; i--) {
+                    const date = new Date(now);
+                    date.setDate(date.getDate() - i);
+                    // Random walk
+                    const change = (Math.random() - 0.5) * (basePrice * 0.05);
+                    price += change;
+                    if(price < 1) price = 1;
+                    
+                    data.push({
+                        x: date.valueOf(),
+                        y: price
+                    });
+                }
+                return data;
+            }
+
+            // Simulate live tick
+            getNextPrice(currentPrice) {
+                const volatility = currentPrice * 0.002; // 0.2% variance
+                const change = (Math.random() - 0.5) * volatility;
+                return currentPrice + change;
+            }
+        }
+
+        const mockEngine = new MockEngine();
+
+        // --- CONTROLS ---
+        function setRange(range) {
+            STATE.currentRange = range;
+            
+            // Update UI
+            document.querySelectorAll('.time-btn').forEach(btn => {
+                if(btn.textContent === range.toUpperCase() || 
+                   (range === '1mo' && btn.textContent === '1M') ||
+                   (range === '3mo' && btn.textContent === '3M') ||
+                   (range === '6mo' && btn.textContent === '6M') ||
+                   (range === '1y' && btn.textContent === '1Y') ||
+                   (range === '5y' && btn.textContent === '5Y')) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            loadStock(STATE.currentSymbol);
+        }
+
+        function getDaysFromRange(range) {
+            switch(range) {
+                case '1mo': return 30;
+                case '3mo': return 90;
+                case '6mo': return 180;
+                case '1y': return 365;
+                case '2y': return 730;
+                case '5y': return 1825;
+                default: return 365;
+            }
+        }
+
+        // --- CHART CONTROLLER ---
+        function initChart() {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            
+            STATE.chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'מחיר (₪)',
+                        data: [],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index',
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.parsed.y.toFixed(2)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'month',
+                                displayFormats: { month: 'MMM yy' }
+                            },
+                            grid: { color: '#334155', tickColor: '#334155' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        y: {
+                            position: 'right',
+                            grid: { color: '#334155', tickColor: '#334155' },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- DATA FETCHING ---
+        async function loadStock(symbol) {
+            document.getElementById('chartLoader').style.display = 'block';
+            const stockInfo = STATE.stocks.find(s => s.s === symbol) || { n: symbol, p: 100 };
+            
+            // UI Update Immediate
+            document.getElementById('mainSymbol').textContent = symbol;
+            document.getElementById('mainName').textContent = stockInfo.n;
+            STATE.currentSymbol = symbol;
+
+            try {
+                // Try fetching real data
+                if (CONFIG.useProxy) {
+                    // Dynamic interval based on range
+                    const interval = ['5y', 'max'].includes(STATE.currentRange) ? '1wk' : '1d';
+                    const url = `${CONFIG.proxyUrl}${CONFIG.yahooUrl}${symbol}?range=${STATE.currentRange}&interval=${interval}`;
+                    const res = await fetch(url);
+                    if(!res.ok) throw new Error('API Error');
+                    
+                    const json = await res.json();
+                    const result = json.chart.result[0];
+                    
+                    // Process real data
+                    const quotes = result.indicators.quote[0];
+                    const timestamps = result.timestamp;
+                    
+                    const dataPoints = timestamps.map((ts, i) => ({
+                        x: ts * 1000,
+                        y: quotes.close[i]
+                    })).filter(p => p.y !== null);
+
+                    STATE.history = dataPoints;
+                    STATE.isSimulation = false;
+                    document.getElementById('dataStatus').textContent = 'Live Data';
+                    document.getElementById('dataStatus').className = 'status-badge live';
+
+                    // Update details from meta
+                    updateDetails(result.meta);
+                    
+                } else {
+                    throw new Error('Proxy disabled');
+                }
+            } catch (e) {
+                console.warn("Using simulation fallback", e);
+                // Fallback to simulation
+                STATE.isSimulation = true;
+                document.getElementById('dataStatus').textContent = 'סימולציה';
+                document.getElementById('dataStatus').className = 'status-badge sim';
+                
+                // Generate fake history based on seed price
+                const seedPrice = stockInfo.p || 100;
+                const days = getDaysFromRange(STATE.currentRange);
+                STATE.history = mockEngine.generateHistory(seedPrice, days);
+                
+                // Fake details
+                updateDetails({
+                    regularMarketPrice: STATE.history[STATE.history.length-1].y,
+                    regularMarketDayHigh: seedPrice * 1.02,
+                    regularMarketDayLow: seedPrice * 0.98,
+                    regularMarketVolume: Math.floor(Math.random() * 1000000),
+                    marketCap: seedPrice * 5000000
+                });
+            }
+
+            // Render
+            updateChart(STATE.history);
+            
+            const lastPoint = STATE.history[STATE.history.length - 1];
+            updateMainPrice(lastPoint.y, STATE.history[0].y); // Compare to start for change
+            
+            // Set calc input default
+            document.getElementById('buyPrice').value = lastPoint.y.toFixed(2);
+            document.getElementById('chartLoader').style.display = 'none';
+        }
+
+        function updateChart(data) {
+            STATE.chart.data.datasets[0].data = data;
+            
+            // Color based on trend
+            const start = data[0].y;
+            const end = data[data.length - 1].y;
+            const color = end >= start ? '#10b981' : '#ef4444'; // Green or Red
+            
+            STATE.chart.data.datasets[0].borderColor = color;
+            STATE.chart.data.datasets[0].backgroundColor = end >= start ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+            
+            STATE.chart.update();
+        }
+
+        function updateMainPrice(current, reference) {
+            const elPrice = document.getElementById('mainPrice');
+            const elChange = document.getElementById('mainChange');
+            
+            elPrice.textContent = current.toFixed(2);
+            
+            const change = current - reference;
+            const percent = (change / reference) * 100;
+            const sign = change >= 0 ? '+' : '';
+            const className = change >= 0 ? 'up' : 'down';
+            
+            elChange.textContent = `${sign}${change.toFixed(2)} (${sign}${percent.toFixed(2)}%)`;
+            elChange.className = `stock-change ${className}`;
+            elPrice.style.color = change >= 0 ? 'var(--success)' : 'var(--danger)';
+        }
+
+        function updateDetails(meta) {
+            // Helper for formating big numbers
+            const fmt = (n) => {
+                if(!n) return '-';
+                if(n > 1e9) return (n/1e9).toFixed(2) + 'B';
+                if(n > 1e6) return (n/1e6).toFixed(2) + 'M';
+                return n.toLocaleString();
+            };
+
+            // Use meta data if available (Yahoo format), otherwise fallback
+            // Simulation passes an object with these keys
+            const price = meta.regularMarketPrice || meta.previousClose || 0;
+            
+            document.getElementById('valOpen').textContent = (meta.regularMarketOpen || meta.chartPreviousClose || price).toFixed(2);
+            document.getElementById('valHigh').textContent = (meta.regularMarketDayHigh || price * 1.01).toFixed(2);
+            document.getElementById('valLow').textContent = (meta.regularMarketDayLow || price * 0.99).toFixed(2);
+            document.getElementById('valVol').textContent = fmt(meta.regularMarketVolume);
+            
+            // Market Cap logic
+            let mcap = meta.marketCap;
+            if(!mcap && price) mcap = price * 10000000; // Fake cap if missing
+            document.getElementById('valCap').textContent = fmt(mcap);
+        }
+
+        // --- WATCHLIST ---
+        function renderWatchlist() {
+            const container = document.getElementById('watchlist');
+            container.innerHTML = '';
+            
+            STATE.stocks.forEach(stock => {
+                const div = document.createElement('div');
+                div.className = `stock-item ${stock.s === STATE.currentSymbol ? 'active' : ''}`;
+                div.onclick = () => {
+                    document.querySelectorAll('.stock-item').forEach(el => el.classList.remove('active'));
+                    div.classList.add('active');
+                    loadStock(stock.s);
+                };
+
+                // Random daily change for watchlist visuals
+                const changeP = (Math.random() * 4) - 2; 
+                const isUp = changeP >= 0;
+                
+                div.innerHTML = `
+                    <div>
+                        <div class="stock-symbol">${stock.s}</div>
+                        <div class="stock-name">${stock.n}</div>
+                    </div>
+                    <div>
+                        <div class="stock-price">${stock.p.toLocaleString()}</div>
+                        <div class="stock-change ${isUp ? 'up' : 'down'}">${isUp?'+':''}${changeP.toFixed(2)}%</div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // --- SEARCH ---
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') {
+                let val = e.target.value.toUpperCase();
+                if(val) {
+                    // Quick fix for Israeli stocks if user forgot .TA
+                    if(!val.includes('.') && /^[A-Z]{3,5}$/.test(val)) {
+                         // Heuristic: if it's 4 letters, try TA
+                         // But we'll just search as is first.
+                    }
+                    
+                    // Add to STATE if not exists
+                    if(!STATE.stocks.find(s => s.s === val)) {
+                        STATE.stocks.unshift({ s: val, n: 'Custom Search', p: 100 });
+                        renderWatchlist();
+                    }
+                    loadStock(val);
+                    e.target.value = '';
+                }
+            }
+        });
+
+        // --- CALCULATOR ---
+        function calculateReturn() {
+            const amount = parseFloat(document.getElementById('investAmount').value);
+            const entryPrice = parseFloat(document.getElementById('buyPrice').value);
+            const currentPrice = parseFloat(document.getElementById('mainPrice').textContent);
+            
+            if(!amount || !entryPrice) return;
+
+            const shares = amount / entryPrice;
+            const currentVal = shares * currentPrice;
+            const diff = currentVal - amount;
+            const diffP = (diff / amount) * 100;
+            
+            const elTotal = document.getElementById('calcTotal');
+            const elDiff = document.getElementById('calcDiff');
+            
+            elTotal.textContent = currentVal.toLocaleString('he-IL', { style: 'currency', currency: 'ILS' });
+            elDiff.textContent = `${diff >= 0 ? '+' : ''}${diff.toFixed(2)} (${diffP.toFixed(2)}%)`;
+            
+            elTotal.style.color = diff >= 0 ? 'var(--success)' : 'var(--danger)';
+            elDiff.className = diff >= 0 ? 'up' : 'down';
+            
+            document.getElementById('calcResult').style.display = 'block';
+        }
+
+        // --- LIVE TICKER EFFECT ---
+        setInterval(() => {
+            if(!STATE.history.length) return;
+            
+            // Randomly update the main price slightly to make it feel "live"
+            const last = STATE.history[STATE.history.length - 1];
+            const newVal = mockEngine.getNextPrice(last.y);
+            
+            // Update Array
+            STATE.history[STATE.history.length - 1].y = newVal;
+            
+            // Update UI
+            updateChart(STATE.history);
+            // Reference for change is start of day (approx last - 1 or separate open var)
+            // For simplicity, we compare to yesterday's close (2nd to last point)
+            const prev = STATE.history[STATE.history.length - 2] || STATE.history[0];
+            updateMainPrice(newVal, prev.y);
+            
+        }, 2000);
+
+        // --- INIT ---
+        window.addEventListener('load', () => {
+            initChart();
+            renderWatchlist();
+            loadStock(STATE.currentSymbol);
+        });
+
+    </script>
+</body>
+</html>
+
